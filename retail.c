@@ -37,6 +37,7 @@ void updateScreen();
 void sigIntHandler(int);
 void calculateTermSize();
 void putLineInBuffer(Line *line);
+int rowsForLine(Line *l, int maxCols);
 
 extern int errno;
 bool volatile hasToExit = false;
@@ -45,27 +46,12 @@ pthread_t drawingThread;
 
 Buffer buffer;
 
-int maxCols;
-int maxRows;
-
 int main(int argc, char **argv) {
 	signal(SIGINT, sigIntHandler);
-	// TODO handle SIGWINCH for window size changes. now it is fixed.
-	calculateTermSize();
 
         // init buffer
         bufInit(&buffer, BUFFER_SIZE);
 
-        /*
-	// open STDIN
-	int stdinFd = dup(STDIN_FILENO);
-	if (stdinFd == -1) {
-		gracefulExit();
-		fprintf(stderr, "Error opening STDIN\n");
-		fprintf(stderr, "ERRNO is %s (errno=%d)\n", strerror(errno), errno);
-		return 1;			
-	}
-        */
 	// init screen 
 	initScreen();
 
@@ -95,13 +81,6 @@ int main(int argc, char **argv) {
 void sigIntHandler(int dummy) {
     	hasToExit = true;
 	fprintf(stdout, "\n");
-}
-
-void calculateTermSize() {
-	struct winsize w;
-	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-	maxCols = w.ws_col;
-	maxRows = w.ws_row;
 }
 
 void putLineInBuffer(Line *line) {
@@ -136,10 +115,36 @@ void* screenDrawingThread (void *ptr) {
 	return NULL;
 }
 
+int rowsForLine(Line *l, int maxCols) {
+    int len = strlen(l->value);
+    return len / maxCols;
+}
+
 void updateScreen() {
+        Buffer *b = &buffer;
+        int mCols = 0;
+        int mRows = 0;
+        int rowsLeft = 0;
+        int iterations = 0;
+        long iterator = (b->start + b->count - 1) % b->size;
         clear();
-        // TODO read from the buffer and print on screen
-	addch(42);
+        getmaxyx(stdscr, mCols, mRows);
+        rowsLeft = mRows;
+        if (b->count > 0) {
+            while (iterations < b->count && rowsLeft > 0) {
+                Line *l = bufRead(b, iterator);
+                if (l != NULL) {
+                    int rowsLine = rowsForLine(l, mCols);
+                    printw("%d %s", iterator, l->value);
+                    iterations++;
+                    iterator--;
+                    if (iterator < 0) {
+                        iterator = b->start + b->count - 1;
+                    }
+                    rowsLeft -= rowsLine;
+                }
+            }
+        }
 	refresh();	
 }
 
