@@ -5,7 +5,6 @@
  * Greets to #openbsd on AzzurraNet ;)
  * 
  */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -15,6 +14,7 @@
 #include <string.h>
 #include <ncurses.h>
 #include <signal.h>
+
 
 #define MAX_LINE_W 2048
 #define BUFFER_SIZE 512

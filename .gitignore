@@ -1,2 +1,6 @@
 nbproject/
-
+bin/
+/missing
+/install-sh
+/depcomp
+/compile
