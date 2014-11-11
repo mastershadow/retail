@@ -1,3 +1,11 @@
+/**
+ * Retail is a nightly project by Eduard Roccatello.
+ * 
+ * Made with love for Guly and his tremendous peppers.
+ * Greets to #openbsd on AzzurraNet ;)
+ * 
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -7,7 +15,6 @@
 #include <string.h>
 #include <ncurses.h>
 #include <signal.h>
-#include <sys/ioctl.h>
 
 #define MAX_LINE_W 2048
 #define BUFFER_SIZE 512
@@ -43,12 +50,21 @@ extern int errno;
 bool volatile hasToExit = false;
 bool volatile hasToRedraw = false;
 pthread_t drawingThread;
+pthread_mutex_t lock;
 
 Buffer buffer;
 
 int main(int argc, char **argv) {
+        // ctrl - c handler
 	signal(SIGINT, sigIntHandler);
-
+        
+        // mutex 
+        if (pthread_mutex_init(&lock, NULL) != 0) {
+            gracefulExit();
+            fprintf(stderr, "Error creating mutex\n");
+            return 1;
+        }
+        
         // init buffer
         bufInit(&buffer, BUFFER_SIZE);
 
@@ -67,10 +83,12 @@ int main(int argc, char **argv) {
         char *line = (char *)malloc(sizeof(char) * MAX_LINE_W);
 	while (!hasToExit) {
 		if (fgets(line, MAX_LINE_W, stdin) != NULL) {
+                    pthread_mutex_lock(&lock);
                     Line *l = (Line *)malloc(sizeof(Line));
                     // dup line
                     l->value = strdup(line);
                     putLineInBuffer(l);
+                    pthread_mutex_unlock(&lock);
 		}
 	}
         free(line);
@@ -91,8 +109,10 @@ void putLineInBuffer(Line *line) {
 void gracefulExit() {
 
 	if (drawingThread) {
-		pthread_cancel(drawingThread);
+            pthread_cancel(drawingThread);
 	}
+        
+        pthread_mutex_destroy(&lock);
 	endwin();
 
 	// lines buffer clearing
@@ -108,8 +128,10 @@ void initScreen() {
 void* screenDrawingThread (void *ptr) {
         while (!hasToExit) {
             if (hasToRedraw) {
+                pthread_mutex_lock(&lock);
                 updateScreen();
                 hasToRedraw = false;
+                pthread_mutex_unlock(&lock);
             }
         }
 	return NULL;
@@ -135,7 +157,7 @@ void updateScreen() {
                 Line *l = bufRead(b, iterator);
                 if (l != NULL) {
                     int rowsLine = rowsForLine(l, mCols);
-                    printw("%d %s", iterator, l->value);
+                    printw("%s", l->value);
                     iterations++;
                     iterator--;
                     if (iterator < 0) {
