@@ -1,6 +1,13 @@
 nbproject/
 bin/
+autom4te.cache/
 /missing
 /install-sh
 /depcomp
 /compile
+/Makefile
+/Makefile.in
+/aclocal.m4
+/configure
+/config.status
+/config.log
